@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="Teste_Allegro/Teste_Allegro.vcxproj" Id="9fe48dbe-3c3b-415d-91cc-3af6007ebdc7" />
+</Solution>
