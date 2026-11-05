@@ -1,4 +1,4 @@
-# Planejamento do jogo — Defesa Matemática
+# Planejamento do jogo — Number Stiker
 
 ## Conceito
 Jogo educacional 2D em linguagem C, com Allegro 5. Meteoros avançam em direção a uma cidade. Para destruir cada meteoro, o jogador precisa resolver corretamente uma operação matemática antes que ele atinja os prédios.
