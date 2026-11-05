@@ -1,0 +1,28 @@
+# Compilação C / Visual Studio
+Debug/
+Release/
+x64/
+x86/
+.vs/
+*.exe
+*.obj
+*.o
+*.pdb
+*.ilk
+*.idb
+*.tlog
+*.lastbuildstate
+*.log
+*.user
+*.suo
+*.VC.db
+*.VC.opendb
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+
+# Builds locais
+build/
+bin/
+obj/
