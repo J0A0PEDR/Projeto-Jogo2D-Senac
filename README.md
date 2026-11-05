@@ -29,7 +29,18 @@ Projeto-Jogo2D-Senac/
 - Visual Studio no Windows
 - Git e GitHub
 
-## Como executar no Visual Studio
+## Abrir no Visual Studio 2022 (modo rápido)
+
+1. Clone ou baixe o repositório.
+2. Abra **NumberStriker.sln** no Visual Studio 2022 com a carga de trabalho **Desenvolvimento para desktop com C++** (compilador MSVC usado para compilar C).
+3. Clique em **Restaurar Pacotes NuGet** na solução, caso a restauração não aconteça automaticamente. É necessária conexão com a internet na primeira vez.
+4. Escolha **x64 / Debug** e pressione **Ctrl+F5**.
+
+O arquivo `NumberStriker.vcxproj` já compila `main.c` e `interface.c` como **C11 (/TC)** e inclui o Allegro 5.2.11.3 via NuGet. Não é necessário criar outro projeto, incluir arquivos manualmente ou configurar caminhos de headers/libraries quando a restauração funciona.
+
+**Observação:** os arquivos de projeto foram preparados, mas ainda não foram compilados em uma instalação Windows/Visual Studio. Caso o NuGet não restaure ou a integração das bibliotecas apresente erro, envie a saída de compilação para correção.
+
+## Configuração manual (alternativa)
 1. Instale e configure Allegro 5 em um projeto C compatível no Visual Studio.
 2. Adicione `src/main.c` ao projeto.
 3. Configure os diretórios de inclusão, bibliotecas e os arquivos de biblioteca Allegro correspondentes à versão e arquitetura usada.
