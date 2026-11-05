@@ -1,4 +1,4 @@
-# Defesa Matemática ☄️
+# Number Striker☄️
 
 Projeto integrador: jogo educativo 2D em **C com Allegro 5**.
 
