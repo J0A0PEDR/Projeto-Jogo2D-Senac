@@ -1,7 +1,7 @@
 /*
  * Defesa Matemática — ponto de partida.
  * Bibliotecas: Allegro 5 (core, primitives, font).
- * Este arquivo abre uma janela e exibe o título.
+ * Codigo escrito exclusivamente em C (arquivo .c).\n * Este arquivo abre uma janela e exibe o titulo.
  */
 #include <stdio.h>
 #include <allegro5/allegro.h>
@@ -45,7 +45,7 @@ int main(void) {
     al_register_event_source(queue, al_get_display_event_source(display));
     al_register_event_source(queue, al_get_keyboard_event_source());
 
-    bool running = true;
+    int running = 1;
     while (running) {
         al_clear_to_color(al_map_rgb(13, 22, 42));
         al_draw_filled_rectangle(0, 450, 960, 540, al_map_rgb(35, 78, 68));
@@ -62,7 +62,7 @@ int main(void) {
         if (event.type == ALLEGRO_EVENT_DISPLAY_CLOSE ||
             (event.type == ALLEGRO_EVENT_KEY_DOWN &&
              event.keyboard.keycode == ALLEGRO_KEY_ESCAPE)) {
-            running = false;
+            running = 0;
         }
     }
 
