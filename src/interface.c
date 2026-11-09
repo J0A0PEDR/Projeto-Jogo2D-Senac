@@ -10,27 +10,30 @@
 #define ALTURA 600
 #define MAX_METEOROS 5
 #define MAX_FUNDO 15
-#define MAX_PREDIOS 12
+#define MAX_PREDIOS 14
 
-typedef enum { MENU, JOGANDO, GAME_OVER } EstadoJogo;
+typedef enum { MENU, CONTAGEM, JOGANDO, GAME_OVER } EstadoJogo;
 typedef enum { FACIL, MEDIO, DIFICIL } Dificuldade;
 typedef struct {
     float x, y, velocidade;
     int num1, num2, resultado, ativo;
     char operacao;
+    float raio;
 } Meteoro;
 typedef struct { float x, y, velocidade, tamanho; } MeteoroFundo;
 typedef struct {
     float x, y, largura, altura;
     int r, g, b;
 } Predio;
+typedef struct { float x1, y1, x2, y2; int tempo_vida; } FeixeLaser;
 
 static void criar_meteoro(Meteoro *m, Dificuldade d) {
     int max_num = d == FACIL ? 10 : (d == MEDIO ? 20 : 50);
-    float base = d == FACIL ? 0.5f : (d == MEDIO ? 0.9f : 1.4f);
+    float base = d == FACIL ? 0.6f : (d == MEDIO ? 0.9f : 1.4f);
     m->x = (float)(60 + rand() % (LARGURA - 120));
-    m->y = (float)(-50 - rand() % 80);
-    m->velocidade = base + (float)rand() / RAND_MAX * 0.8f;
+    m->y = (float)(-50 - rand() % 100);
+    m->raio = 30.0f;
+    m->velocidade = base + (float)rand() / RAND_MAX * 0.7f;
     m->num1 = 1 + rand() % max_num;
     m->num2 = 1 + rand() % max_num;
     m->operacao = rand() % 2 ? '+' : '-';
@@ -70,10 +73,12 @@ int executar_jogo(void) {
     Predio predios[MAX_PREDIOS];
     MeteoroFundo fundo[MAX_FUNDO];
     Meteoro meteoros[MAX_METEOROS] = {0};
+    FeixeLaser laser = {0};
+    int contagem_val = 3, contagem_frames = 0;
     char entrada[10] = "";
     int indice = 0, pontos = 0, vidas = 3, rodando = 1, i;
-    const float painel_x = 230.0f, painel_y = 135.0f;
-    const float botao_x = 300.0f, botao_y = 245.0f;
+    const float painel_x = 220.0f, painel_y = 130.0f;
+    const float botao_x = 290.0f, botao_y = 255.0f;
 
     srand((unsigned int)time(NULL));
     if (!al_init()) { fprintf(stderr, "Falha ao iniciar Allegro.\n"); return 1; }
@@ -102,13 +107,13 @@ int executar_jogo(void) {
     al_register_event_source(fila, al_get_mouse_event_source());
 
     for (i = 0; i < MAX_PREDIOS; ++i) {
-        predios[i].largura = (float)(50 + rand() % 40);
-        predios[i].altura = (float)(80 + rand() % 120);
-        predios[i].x = (float)(10 + i * 65);
+        predios[i].largura = (float)(45 + rand() % 35);
+        predios[i].altura = (float)(70 + rand() % 110);
+        predios[i].x = (float)(5 + i * 58);
         predios[i].y = ALTURA - predios[i].altura;
-        predios[i].r = 20 + rand() % 30;
-        predios[i].g = 25 + rand() % 35;
-        predios[i].b = 45 + rand() % 40;
+        predios[i].r = 20 + rand() % 25;
+        predios[i].g = 25 + rand() % 30;
+        predios[i].b = 40 + rand() % 35;
     }
     for (i = 0; i < MAX_FUNDO; ++i) criar_fundo(&fundo[i]);
     al_start_timer(timer);
@@ -128,6 +133,15 @@ int executar_jogo(void) {
                     fundo[i].y = -10;
                 }
             }
+            if (estado == CONTAGEM) {
+                ++contagem_frames;
+                if (contagem_frames >= 60) {
+                    contagem_frames = 0;
+                    --contagem_val;
+                    if (contagem_val <= 0) estado = MENU;
+                }
+            }
+            if (laser.tempo_vida > 0) --laser.tempo_vida;
             if (estado == JOGANDO) {
                 for (i = 0; i < MAX_METEOROS; ++i) {
                     if (!meteoros[i].ativo) continue;
@@ -146,14 +160,21 @@ int executar_jogo(void) {
         } else if (ev.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN &&
                    (estado == MENU || estado == GAME_OVER)) {
             int x = ev.mouse.x, y = ev.mouse.y;
-            if (x >= botao_x && x <= botao_x + 200 &&
+            if (x >= botao_x && x <= botao_x + 220 &&
                 y >= botao_y && y <= botao_y + 45) {
-                iniciar_partida(meteoros, dificuldade, &pontos, &vidas, entrada, &indice);
-                estado = JOGANDO;
-            } else if (estado == MENU && y >= painel_y + 60 && y <= painel_y + 85) {
-                if (x >= painel_x + 20 && x <= painel_x + 100) dificuldade = FACIL;
-                else if (x >= painel_x + 120 && x <= painel_x + 210) dificuldade = MEDIO;
-                else if (x >= painel_x + 230 && x <= painel_x + 320) dificuldade = DIFICIL;
+                if (dificuldade == FACIL) {
+                    iniciar_partida(meteoros, dificuldade, &pontos, &vidas, entrada, &indice);
+                    laser.tempo_vida = 0;
+                    estado = JOGANDO;
+                } else {
+                    contagem_val = 3;
+                    contagem_frames = 0;
+                    estado = CONTAGEM;
+                }
+            } else if (estado == MENU && y >= painel_y + 70 && y <= painel_y + 95) {
+                if (x >= painel_x + 20 && x <= painel_x + 110) dificuldade = FACIL;
+                else if (x >= painel_x + 130 && x <= painel_x + 230) dificuldade = MEDIO;
+                else if (x >= painel_x + 240 && x <= painel_x + 340) dificuldade = DIFICIL;
             }
         } else if (ev.type == ALLEGRO_EVENT_KEY_CHAR && estado == JOGANDO) {
             /* ALLEGRO_EVENT guarda o caractere em keyboard.unichar. */
@@ -170,7 +191,12 @@ int executar_jogo(void) {
                     int resposta = atoi(entrada);
                     for (i = 0; i < MAX_METEOROS; ++i) {
                         if (meteoros[i].ativo && meteoros[i].resultado == resposta) {
-                            pontos += (dificuldade + 1) * 10;
+                            pontos += 10;
+                            laser.x1 = LARGURA / 2.0f;
+                            laser.y1 = ALTURA - 55.0f;
+                            laser.x2 = meteoros[i].x;
+                            laser.y2 = meteoros[i].y;
+                            laser.tempo_vida = 10;
                             criar_meteoro(&meteoros[i], dificuldade);
                             break;
                         }
@@ -181,7 +207,7 @@ int executar_jogo(void) {
             }
         }
         if (ev.type == ALLEGRO_EVENT_TIMER && al_is_event_queue_empty(fila)) {
-            al_clear_to_color(al_map_rgb(10, 10, 22));
+            al_clear_to_color(al_map_rgb(10, 12, 24));
             for (i = 0; i < MAX_PREDIOS; ++i) {
                 float x, y;
                 Predio *p = &predios[i];
@@ -202,21 +228,21 @@ int executar_jogo(void) {
             }
             if (estado == MENU || estado == GAME_OVER) {
                 const char *rotulo = estado == MENU ? "JOGAR" : "JOGAR NOVAMENTE";
-                al_draw_filled_rectangle(painel_x, painel_y, painel_x + 340,
-                                         painel_y + 230, al_map_rgb(20, 24, 40));
-                al_draw_rectangle(painel_x, painel_y, painel_x + 340,
-                                  painel_y + 230, al_map_rgb(0, 200, 255), 2);
+                al_draw_filled_rectangle(painel_x, painel_y, painel_x + 360,
+                                         painel_y + 240, al_map_rgb(20, 24, 40));
+                al_draw_rectangle(painel_x, painel_y, painel_x + 360,
+                                  painel_y + 240, al_map_rgb(0, 200, 255), 2);
                 if (estado == MENU) {
                     al_draw_text(fonte, al_map_rgb(0, 255, 200), LARGURA / 2,
                                  painel_y + 20, ALLEGRO_ALIGN_CENTER, "NUMBER STRIKER");
                     al_draw_text(fonte, al_map_rgb(200, 200, 200), LARGURA / 2,
-                                 painel_y + 50, ALLEGRO_ALIGN_CENTER, "Dificuldade:");
+                                 painel_y + 60, ALLEGRO_ALIGN_CENTER, "Dificuldade:");
                     al_draw_text(fonte, dificuldade == FACIL ? al_map_rgb(0, 255, 0) : al_map_rgb(100, 100, 100),
-                                 painel_x + 50, painel_y + 70, ALLEGRO_ALIGN_CENTER, "[ FACIL ]");
+                                 painel_x + 60, painel_y + 80, ALLEGRO_ALIGN_CENTER, "[ FACIL ]");
                     al_draw_text(fonte, dificuldade == MEDIO ? al_map_rgb(255, 255, 0) : al_map_rgb(100, 100, 100),
-                                 painel_x + 165, painel_y + 70, ALLEGRO_ALIGN_CENTER, "[ MEDIO ]");
+                                 painel_x + 180, painel_y + 80, ALLEGRO_ALIGN_CENTER, "[ MEDIO ]");
                     al_draw_text(fonte, dificuldade == DIFICIL ? al_map_rgb(255, 50, 50) : al_map_rgb(100, 100, 100),
-                                 painel_x + 280, painel_y + 70, ALLEGRO_ALIGN_CENTER, "[ DIFICIL ]");
+                                 painel_x + 290, painel_y + 80, ALLEGRO_ALIGN_CENTER, "[ DIFICIL ]");
                 } else {
                     char final_pt[64];
                     snprintf(final_pt, sizeof final_pt, "Pontos Conquistados: %d", pontos);
@@ -225,19 +251,34 @@ int executar_jogo(void) {
                     al_draw_text(fonte, al_map_rgb(255, 255, 255), LARGURA / 2,
                                  painel_y + 35, ALLEGRO_ALIGN_CENTER, final_pt);
                 }
-                al_draw_filled_rectangle(botao_x, botao_y, botao_x + 200,
+                al_draw_filled_rectangle(botao_x, botao_y, botao_x + 220,
                                          botao_y + 45, al_map_rgb(0, 180, 90));
-                al_draw_rectangle(botao_x, botao_y, botao_x + 200,
+                al_draw_rectangle(botao_x, botao_y, botao_x + 220,
                                   botao_y + 45, al_map_rgb(255, 255, 255), 2);
                 al_draw_text(fonte, al_map_rgb(255, 255, 255), LARGURA / 2,
                              botao_y + 16, ALLEGRO_ALIGN_CENTER, rotulo);
+            } else if (estado == CONTAGEM) {
+                char texto[32];
+                snprintf(texto, sizeof texto, "%d", contagem_val);
+                al_draw_filled_rectangle(painel_x, painel_y, painel_x + 360, painel_y + 240, al_map_rgb(18, 22, 38));
+                al_draw_rectangle(painel_x, painel_y, painel_x + 360, painel_y + 240, al_map_rgb(255, 180, 0), 2);
+                al_draw_text(fonte, al_map_rgb(255, 200, 0), LARGURA / 2, painel_y + 30, ALLEGRO_ALIGN_CENTER, "EM BREVE!");
+                al_draw_text(fonte, al_map_rgb(200, 200, 200), LARGURA / 2, painel_y + 60, ALLEGRO_ALIGN_CENTER, "Modo em desenvolvimento");
+                al_draw_text(fonte, al_map_rgb(180, 180, 180), LARGURA / 2, painel_y + 85, ALLEGRO_ALIGN_CENTER, "Retornando ao Menu em:");
+                al_draw_text(fonte, al_map_rgb(255, 255, 255), LARGURA / 2, painel_y + 140, ALLEGRO_ALIGN_CENTER, texto);
             } else if (estado == JOGANDO) {
                 char texto[64];
+                al_draw_filled_triangle(LARGURA / 2 - 20, ALTURA - 30, LARGURA / 2 + 20, ALTURA - 30,
+                                        LARGURA / 2, ALTURA - 55, al_map_rgb(0, 200, 255));
+                if (laser.tempo_vida > 0) {
+                    al_draw_line(laser.x1, laser.y1, laser.x2, laser.y2, al_map_rgb(0, 255, 255), 4);
+                    al_draw_line(laser.x1, laser.y1, laser.x2, laser.y2, al_map_rgb(255, 255, 255), 1);
+                }
                 for (i = 0; i < MAX_METEOROS; ++i) {
                     if (!meteoros[i].ativo) continue;
-                    al_draw_filled_circle(meteoros[i].x, meteoros[i].y, 32,
+                    al_draw_filled_circle(meteoros[i].x, meteoros[i].y, meteoros[i].raio,
                                           al_map_rgb(200, 70, 20));
-                    al_draw_circle(meteoros[i].x, meteoros[i].y, 32,
+                    al_draw_circle(meteoros[i].x, meteoros[i].y, meteoros[i].raio,
                                    al_map_rgb(255, 150, 0), 3);
                     snprintf(texto, sizeof texto, "%d %c %d",
                              meteoros[i].num1, meteoros[i].operacao, meteoros[i].num2);
