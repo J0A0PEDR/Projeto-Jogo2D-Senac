@@ -1,12 +1,11 @@
+#include "jogo.h"
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <string.h>
-#include <math.h>
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_primitives.h>
 #include <allegro5/allegro_font.h>
-#include <allegro5/allegro_ttf.h>
 
 #define LARGURA 800
 #define ALTURA 600
@@ -43,10 +42,10 @@ typedef struct {
     int tempo_vida;
 } FeixeLaser;
 
-void criar_meteoro_jogo(Meteoro *m, Dificuldade diff);
-void criar_meteoro_fundo(MeteoroFundo *m);
+static void criar_meteoro_jogo(Meteoro *m, Dificuldade diff);
+static void criar_meteoro_fundo(MeteoroFundo *m);
 
-void criar_meteoro_jogo(Meteoro *m, Dificuldade diff) {
+static void criar_meteoro_jogo(Meteoro *m, Dificuldade diff) {
     m->x = 60 + rand() % (LARGURA - 120);
     m->y = -50 - (rand() % 100);
     m->raio = 30.0f;
@@ -87,28 +86,46 @@ void criar_meteoro_jogo(Meteoro *m, Dificuldade diff) {
     m->ativo = true;
 }
 
-void criar_meteoro_fundo(MeteoroFundo *m) {
+static void criar_meteoro_fundo(MeteoroFundo *m) {
     m->x = rand() % LARGURA;
     m->y = -(rand() % ALTURA);
     m->velocidade = 1.5f + ((float)rand() / RAND_MAX) * 2.5f;
     m->tamanho = 2.0f + ((float)rand() / RAND_MAX) * 3.0f;
 }
 
-int main() {
+int executar_jogo(void) {
     srand((unsigned int)time(NULL));
 
-    if (!al_init()) return -1;
-    al_init_primitives_addon();
+    if (!al_init()) {
+        fprintf(stderr, "Falha ao iniciar Allegro.\n");
+        return 1;
+    }
+    if (!al_init_primitives_addon()) {
+        fprintf(stderr, "Falha ao iniciar primitives.\n");
+        return 1;
+    }
     al_init_font_addon();
-    al_init_ttf_addon();
-    al_install_keyboard();
-    al_install_mouse();
+    if (!al_install_keyboard() || !al_install_mouse()) {
+        fprintf(stderr, "Falha ao iniciar teclado ou mouse.\n");
+        al_shutdown_primitives_addon();
+        return 1;
+    }
 
     ALLEGRO_DISPLAY *display = al_create_display(LARGURA, ALTURA);
     ALLEGRO_EVENT_QUEUE *queue = al_create_event_queue();
     ALLEGRO_TIMER *timer = al_create_timer(1.0 / 60.0);
     ALLEGRO_FONT *fonte = al_create_builtin_font();
 
+    if (!display || !queue || !timer || !fonte) {
+        fprintf(stderr, "Falha ao criar recursos do Allegro.\n");
+        if (fonte) al_destroy_font(fonte);
+        if (timer) al_destroy_timer(timer);
+        if (queue) al_destroy_event_queue(queue);
+        if (display) al_destroy_display(display);
+        al_shutdown_primitives_addon();
+        return 1;
+    }
+    al_set_window_title(display, "Number Striker - Defesa Matematica");
     al_register_event_source(queue, al_get_display_event_source(display));
     al_register_event_source(queue, al_get_timer_event_source(timer));
     al_register_event_source(queue, al_get_keyboard_event_source());
@@ -133,7 +150,7 @@ int main() {
         criar_meteoro_fundo(&meteoros_fundo[i]);
     }
 
-    Meteoro meteoros[MAX_METEOROS_JOGO];
+    Meteoro meteoros[MAX_METEOROS_JOGO] = {0};
     FeixeLaser laser = { 0, 0, 0, 0, 0 };
 
     char entrada_texto[10] = "";
@@ -156,7 +173,9 @@ int main() {
         ALLEGRO_EVENT ev;
         al_wait_for_event(queue, &ev);
 
-        if (ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
+        if (ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE ||
+            (ev.type == ALLEGRO_EVENT_KEY_DOWN &&
+             ev.keyboard.keycode == ALLEGRO_KEY_ESCAPE)) {
             rodando = false;
         }
         else if (ev.type == ALLEGRO_EVENT_TIMER) {
@@ -179,8 +198,12 @@ int main() {
                             meteoros[i].y += meteoros[i].velocidade;
                             if (meteoros[i].y > ALTURA - 40) {
                                 vidas--;
+                                if (vidas <= 0) {
+                                    vidas = 0;
+                                    estado = GAME_OVER;
+                                    break;
+                                }
                                 criar_meteoro_jogo(&meteoros[i], diff_atual);
-                                if (vidas <= 0) estado = GAME_OVER;
                             }
                         }
                     }
@@ -203,6 +226,7 @@ int main() {
 
                     for (int i = 0; i < MAX_METEOROS_JOGO; i++) {
                         criar_meteoro_jogo(&meteoros[i], diff_atual);
+                        meteoros[i].y -= i * 100.0f;
                     }
                     estado = JOGANDO;
                 }
@@ -216,16 +240,16 @@ int main() {
         }
         else if (ev.type == ALLEGRO_EVENT_KEY_CHAR) {
             if (estado == JOGANDO) {
-                if (ev.unichar >= '0' && ev.unichar <= '9') {
+                if (ev.keyboard.unichar >= '0' && ev.keyboard.unichar <= '9') {
                     if (indice_texto < (int)sizeof(entrada_texto) - 1) {
-                        entrada_texto[indice_texto++] = (char)ev.unichar;
+                        entrada_texto[indice_texto++] = (char)ev.keyboard.unichar;
                         entrada_texto[indice_texto] = '\0';
                     }
                 }
-                else if (ev.keycode == ALLEGRO_KEY_BACKSPACE && indice_texto > 0) {
+                else if (ev.keyboard.keycode == ALLEGRO_KEY_BACKSPACE && indice_texto > 0) {
                     entrada_texto[--indice_texto] = '\0';
                 }
-                else if (ev.keycode == ALLEGRO_KEY_ENTER || ev.keycode == ALLEGRO_KEY_PAD_ENTER) {
+                else if (ev.keyboard.keycode == ALLEGRO_KEY_ENTER || ev.keyboard.keycode == ALLEGRO_KEY_PAD_ENTER) {
                     if (indice_texto > 0) {
                         int resposta = atoi(entrada_texto);
                         for (int i = 0; i < MAX_METEOROS_JOGO; i++) {
@@ -289,7 +313,7 @@ int main() {
                 } else {
                     al_draw_text(fonte, al_map_rgb(255, 50, 50), LARGURA / 2, panel_y + 25, ALLEGRO_ALIGN_CENTER, "GAME OVER!");
                     char final_pt[50];
-                    sprintf(final_pt, "Pontuacao Final: %d", pontos);
+                    snprintf(final_pt, sizeof(final_pt), "Pontuacao Final: %d", pontos);
                     al_draw_text(fonte, al_map_rgb(255, 255, 255), LARGURA / 2, panel_y + 55, ALLEGRO_ALIGN_CENTER, final_pt);
                 }
 
@@ -315,19 +339,19 @@ int main() {
                         al_draw_circle(meteoros[i].x, meteoros[i].y, meteoros[i].raio, al_map_rgb(255, 140, 0), 3);
 
                         char conta_str[20];
-                        sprintf(conta_str, "%d %c %d", meteoros[i].num1, meteoros[i].operacao, meteoros[i].num2);
+                        snprintf(conta_str, sizeof(conta_str), "%d %c %d", meteoros[i].num1, meteoros[i].operacao, meteoros[i].num2);
                         al_draw_text(fonte, al_map_rgb(255, 255, 255), meteoros[i].x, meteoros[i].y - 5, ALLEGRO_ALIGN_CENTER, conta_str);
                     }
                 }
 
                 al_draw_filled_rectangle(0, 0, LARGURA, 35, al_map_rgb(12, 14, 24));
                 char hud_str[60];
-                sprintf(hud_str, "Pontos: %d   |   Vidas: %d", pontos, vidas);
+                snprintf(hud_str, sizeof(hud_str), "Pontos: %d   |   Vidas: %d", pontos, vidas);
                 al_draw_text(fonte, al_map_rgb(255, 255, 255), 20, 10, 0, hud_str);
 
                 al_draw_filled_rectangle(0, ALTURA - 35, LARGURA, ALTURA, al_map_rgb(18, 20, 32));
                 char input_str[30];
-                sprintf(input_str, "Sua resposta: %s_", entrada_texto);
+                snprintf(input_str, sizeof(input_str), "Sua resposta: %s_", entrada_texto);
                 al_draw_text(fonte, al_map_rgb(0, 255, 150), LARGURA - 220, ALTURA - 22, 0, input_str);
             }
 
@@ -339,6 +363,7 @@ int main() {
     al_destroy_timer(timer);
     al_destroy_event_queue(queue);
     al_destroy_display(display);
+    al_shutdown_primitives_addon();
 
     return 0;
 }
