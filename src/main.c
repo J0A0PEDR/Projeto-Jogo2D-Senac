@@ -1,5 +1,4 @@
-/* Ponto de entrada em linguagem C. */
-#include "interface.h"
+#include "jogo.h"
 
 int main(void) {
     return executar_jogo();
