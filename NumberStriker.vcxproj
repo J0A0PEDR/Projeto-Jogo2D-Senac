@@ -58,8 +58,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\main.c" />
-    <ClCompile Include="src\interface.c" />
-    <ClInclude Include="src\interface.h" />
+    <ClCompile Include="src\jogo.c" />
+    <ClInclude Include="src\jogo.h" />
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
