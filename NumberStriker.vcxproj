@@ -68,6 +68,6 @@
     <Import Project="$(SolutionDir)packages\Allegro.5.2.11.3\build\Allegro.targets" Condition="Exists('$(SolutionDir)packages\Allegro.5.2.11.3\build\Allegro.targets')" />
   </ImportGroup>
   <Target Name="EnsureAllegroRestored" BeforeTargets="ClCompile">
-    <Error Condition="!Exists('$(SolutionDir)packages\Allegro.5.2.11.3\build\native\Allegro.props') and !Exists('$(SolutionDir)packages\Allegro.5.2.11.3\build\Allegro.props')" Text="Pacote Allegro ainda nao restaurado. No Visual Studio, clique com botao direito na solucao e escolha Restaurar Pacotes NuGet." />
+    <Error Condition="!Exists('$(SolutionDir)packages\Allegro.5.2.11.3\build\native\Allegro.targets') and !Exists('$(SolutionDir)packages\Allegro.5.2.11.3\build\Allegro.targets')" Text="Nao foi encontrado Allegro.targets. Verifique a instalacao do pacote Allegro 5.2.11.3." />
   </Target>
 </Project>
