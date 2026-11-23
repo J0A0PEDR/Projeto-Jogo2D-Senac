@@ -2,11 +2,14 @@
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_primitives.h>
+#include <allegro5/allegro_audio.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
 #include <stdbool.h>
+#include <math.h>
+#include <stdint.h>
 
 #define LARGURA 800
 #define ALTURA 600
@@ -14,6 +17,8 @@
 #define MAX_EXPLOSOES 15
 #define MAX_HISTORICO 100
 #define MAX_METEOROS_FUNDO 24
+#define SAMPLE_RATE 44100
+#define PI 3.14159265358979323846
 
 #define BLOCO_TAM 10
 #define GRADE_COLS 80
@@ -66,6 +71,74 @@ typedef struct {
 } MeteoroFundo;
 
 bool blocos_cidade[GRADE_LINS][GRADE_COLS];
+
+ALLEGRO_SAMPLE *criarSomTecla(void) {
+    int amostras = (int)(SAMPLE_RATE * 0.04);
+    int16_t *buf = al_malloc((size_t)amostras * sizeof(*buf));
+    if (!buf) return NULL;
+    for (int i = 0; i < amostras; i++) {
+        double t = (double)i / SAMPLE_RATE;
+        double env = 1.0 - (double)i / amostras;
+        buf[i] = (int16_t)(sin(2.0 * PI * 900.0 * t) * 8000.0 * env);
+    }
+    ALLEGRO_SAMPLE *som = al_create_sample(buf, amostras, SAMPLE_RATE,
+        ALLEGRO_AUDIO_DEPTH_INT16, ALLEGRO_CHANNEL_CONF_1, true);
+    if (!som) al_free(buf);
+    return som;
+}
+
+ALLEGRO_SAMPLE *criarSomAcerto(void) {
+    int amostras = (int)(SAMPLE_RATE * 0.22);
+    int16_t *buf = al_malloc((size_t)amostras * sizeof(*buf));
+    if (!buf) return NULL;
+    for (int i = 0; i < amostras; i++) {
+        double t = (double)i / SAMPLE_RATE;
+        double freq = (i < amostras / 2) ? 587.33 : 880.0;
+        double env = 1.0 - (double)i / amostras;
+        double onda = sin(2.0 * PI * freq * t) > 0 ? 1.0 : -1.0;
+        buf[i] = (int16_t)(onda * 7000.0 * env);
+    }
+    ALLEGRO_SAMPLE *som = al_create_sample(buf, amostras, SAMPLE_RATE,
+        ALLEGRO_AUDIO_DEPTH_INT16, ALLEGRO_CHANNEL_CONF_1, true);
+    if (!som) al_free(buf);
+    return som;
+}
+
+ALLEGRO_SAMPLE *criarSomExplosao(void) {
+    int amostras = (int)(SAMPLE_RATE * 0.45);
+    int16_t *buf = al_malloc((size_t)amostras * sizeof(*buf));
+    if (!buf) return NULL;
+    double ultimo = 0.0;
+    for (int i = 0; i < amostras; i++) {
+        double env = pow(1.0 - (double)i / amostras, 1.8);
+        double ruido = (double)(rand() % 20000) / 10000.0 - 1.0;
+        ultimo = ultimo * 0.85 + ruido * 0.15;
+        buf[i] = (int16_t)(ultimo * 28000.0 * env);
+    }
+    ALLEGRO_SAMPLE *som = al_create_sample(buf, amostras, SAMPLE_RATE,
+        ALLEGRO_AUDIO_DEPTH_INT16, ALLEGRO_CHANNEL_CONF_1, true);
+    if (!som) al_free(buf);
+    return som;
+}
+
+ALLEGRO_SAMPLE *criarSomGameOver(void) {
+    int amostras = (int)(SAMPLE_RATE * 0.75);
+    int16_t *buf = al_malloc((size_t)amostras * sizeof(*buf));
+    if (!buf) return NULL;
+    for (int i = 0; i < amostras; i++) {
+        double t = (double)i / SAMPLE_RATE;
+        double freq = 330.0;
+        if (i > amostras * 2 / 3) freq = 220.0;
+        else if (i > amostras / 3) freq = 277.18;
+        double env = 1.0 - (double)i / amostras * 0.7;
+        double onda = sin(2.0 * PI * freq * t) > 0 ? 1.0 : -1.0;
+        buf[i] = (int16_t)(onda * 8000.0 * env);
+    }
+    ALLEGRO_SAMPLE *som = al_create_sample(buf, amostras, SAMPLE_RATE,
+        ALLEGRO_AUDIO_DEPTH_INT16, ALLEGRO_CHANNEL_CONF_1, true);
+    if (!som) al_free(buf);
+    return som;
+}
 
 void construirCidade() {
     for (int l = 0; l < GRADE_LINS; l++) {
@@ -386,6 +459,13 @@ int executar_jogo(void) {
     al_install_keyboard();
     al_install_mouse();
 
+    bool audio_ok = al_install_audio();
+    if (audio_ok) audio_ok = al_reserve_samples(8);
+    ALLEGRO_SAMPLE *som_tecla = audio_ok ? criarSomTecla() : NULL;
+    ALLEGRO_SAMPLE *som_acerto = audio_ok ? criarSomAcerto() : NULL;
+    ALLEGRO_SAMPLE *som_explosao = audio_ok ? criarSomExplosao() : NULL;
+    ALLEGRO_SAMPLE *som_gameover = audio_ok ? criarSomGameOver() : NULL;
+
     ALLEGRO_DISPLAY *display = al_create_display(LARGURA, ALTURA);
     ALLEGRO_EVENT_QUEUE *fila = al_create_event_queue();
     ALLEGRO_TIMER *timer = al_create_timer(1.0 / 60.0);
@@ -445,6 +525,7 @@ int executar_jogo(void) {
 
             if (estado == MENU) {
                 if (mx >= 285 && mx <= 515 && my >= 315 && my <= 375) {
+                    if (som_tecla) al_play_sample(som_tecla, 0.6f, 0.0f, 1.0f, ALLEGRO_PLAYMODE_ONCE, NULL);
                     estado = DIFICULDADE;
                 }
             } else if (estado == DIFICULDADE) {
@@ -454,6 +535,7 @@ int executar_jogo(void) {
                 if (mx >= 300 && mx <= 500 && my >= 360 && my <= 410) { nivel = 3; iniciou = true; }
 
                 if (iniciou) {
+                    if (som_tecla) al_play_sample(som_tecla, 0.6f, 0.0f, 1.2f, ALLEGRO_PLAYMODE_ONCE, NULL);
                     construirCidade();
                     vida_cidade = 100;
                     pontos_totais = 0;
@@ -471,6 +553,7 @@ int executar_jogo(void) {
                 }
             } else if (estado == GAME_OVER) {
                 if (mx >= 285 && mx <= 515 && my >= 515 && my <= 562) {
+                    if (som_tecla) al_play_sample(som_tecla, 0.6f, 0.0f, 1.0f, ALLEGRO_PLAYMODE_ONCE, NULL);
                     estado = MENU;
                 }
             }
@@ -480,8 +563,10 @@ int executar_jogo(void) {
                 if (ev.keyboard.unichar >= '0' && ev.keyboard.unichar <= '9' && input_pos < 10) {
                     input_texto[input_pos++] = (char)ev.keyboard.unichar;
                     input_texto[input_pos] = '\0';
+                    if (som_tecla) al_play_sample(som_tecla, 0.4f, 0.0f, 1.0f, ALLEGRO_PLAYMODE_ONCE, NULL);
                 } else if (ev.keyboard.keycode == ALLEGRO_KEY_BACKSPACE && input_pos > 0) {
                     input_texto[--input_pos] = '\0';
+                    if (som_tecla) al_play_sample(som_tecla, 0.4f, 0.0f, 0.8f, ALLEGRO_PLAYMODE_ONCE, NULL);
                 } else if (ev.keyboard.keycode == ALLEGRO_KEY_ENTER && input_pos > 0) {
                     int resposta = atoi(input_texto);
                     int alvo = -1;
@@ -507,6 +592,7 @@ int executar_jogo(void) {
                         acertos++;
                         registrarHistorico(historico, &total_historico, meteoros[alvo], true);
                         meteoros[alvo].ativo = false;
+                        if (som_acerto) al_play_sample(som_acerto, 0.9f, 0.0f, 1.0f, ALLEGRO_PLAYMODE_ONCE, NULL);
                     }
 
                     input_pos = 0;
@@ -563,10 +649,12 @@ int executar_jogo(void) {
                             meteoros[i].ativo = false;
                             vida_cidade -= 20;
                             erros++;
+                            if (som_explosao) al_play_sample(som_explosao, 0.9f, 0.0f, 1.0f, ALLEGRO_PLAYMODE_ONCE, NULL);
 
                             if (vida_cidade <= 0) {
                                 vida_cidade = 0;
                                 estado = GAME_OVER;
+                                if (som_gameover) al_play_sample(som_gameover, 0.9f, 0.0f, 1.0f, ALLEGRO_PLAYMODE_ONCE, NULL);
                             }
                         }
                     }
@@ -798,6 +886,12 @@ int executar_jogo(void) {
             al_flip_display();
         }
     }
+
+    if (som_tecla) al_destroy_sample(som_tecla);
+    if (som_acerto) al_destroy_sample(som_acerto);
+    if (som_explosao) al_destroy_sample(som_explosao);
+    if (som_gameover) al_destroy_sample(som_gameover);
+    if (al_is_audio_installed()) al_uninstall_audio();
 
     al_destroy_font(fonte);
     al_destroy_timer(timer);
